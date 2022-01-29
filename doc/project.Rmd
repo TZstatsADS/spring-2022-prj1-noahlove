@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(tokenizers)
+library(tidytext)
 ```
 
 ## R Markdown
@@ -17,13 +19,12 @@ Hello
 
 
 ```{r}
-philosophy_data <- read_csv("philosophy_data.csv")
-
+philosophy_data <- read_csv("../data/philosophy_data.csv")
 
 ```
 
 ```{r}
-head(philosophy_data)
+philosophy_data
 ```
 
 
@@ -102,7 +103,8 @@ ggplot(platoAristotle, aes(x = sentence_length, color = author)) +
   geom_histogram(fill= "white", alpha = 0.7, position = "dodge")
 
 ```
-```{r}
+
+```{r eval=FALSE, include=FALSE}
 separated <- philosophy_data %>% 
   select(title,author,tokenized_txt) %>% 
   separate(tokenized_txt, sep = ",")
@@ -110,9 +112,248 @@ separated <- philosophy_data %>%
 separated 
 ```
 
+```{r}
+
+# Cran guide to tokenizing 
+# https://cran.r-project.org/web/packages/tokenizers/vignettes/introduction-to-tokenizers.html
+
+philosophy_data_tokens <- philosophy_data %>% 
+  unnest_tokens(word, sentence_str)
+
+```
+ 
+
+
 
 ```{r}
 
+tidy_plato <- philosophy_data_tokens %>% 
+  filter(author == "Plato") %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+tidy_plato %>%  
+  filter(n > 600) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
 ```
+
+```{r}
+
+
+tidy_aristotle<- philosophy_data_tokens %>% 
+  filter(author == "Aristotle") %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+tidy_aristotle%>%  
+  filter(n > 1000) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
+```
+
+
+```{r}
+count_all <- philosophy_data_tokens %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+count_all%>%  
+  filter(n > 5000) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
+```
+## Infatuation with time
+
+sentiment 
+
+What is the focus on time? 
+
+```{r}
+count_all
+```
+
+Tokenize n-gram
+
+```{r}
+bigrams <- philosophy_data %>% 
+  unnest_tokens(bigram, title, token = "ngrams", n = 2)
+
+bigrams
+
+```
+
+
+
+```{r}
+bigram_count <- bigrams %>% 
+  count(bigram, sort = TRUE)
+
+bigram_count
+
+
+```
+
+Get rid of stop words in bigrams 
+source: https://www.tidytextmining.com/ngrams.html
+
+```{r}
+bigrams_filtered <- bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(!word1 %in% stop_words$word) %>% 
+  filter(!word2 %in% stop_words$word) %>% 
+  count(word1, word2, sort = TRUE)
+
+bigrams_filtered
+
+time_bigrams <- bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter("time" == word1 | "time" == word2) %>% 
+  count(word1, word2, sort = TRUE)
+
+time_bigrams
+
+```
+
+
+So pretty much nothing interesting. Most commoon phrase would be "philosophical troubles" or "human understanding". "Human nature" also is quite a lot. 
+
+
+```{r}
+
+trigrams <- philosophy_data %>% 
+  unnest_tokens(trigram, title, token = "ngrams", n = 3) %>% 
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>% 
+  count(word1, word2, word3, sort = TRUE)
+
+
+
+time_trigrams <- philosophy_data %>% 
+  unnest_tokens(trigram, title, token = "ngrams", n = 3) %>% 
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>% 
+  filter("time" == word1 | "time" == word2 | "time" == word3) %>% 
+  count(word1, word2, word3, sort = TRUE)
+
+time_trigrams
+```
+
+```{r}
+
+we_sums <- philosophy_data_tokens %>% 
+  filter(word == "we" ) %>% 
+  group_by(title) %>% 
+  count(word)
+
+names <- philosophy_data %>% 
+  distinct(title,author, original_publication_date) 
+
+
+i_sums <- philosophy_data_tokens %>% 
+  filter(word == "I" | word == "i") %>% 
+  group_by(title) %>% 
+  count(word)
+
+sums <- full_join(we_sums, i_sums, by = "title") %>% 
+  select(title, n.x, n.y) %>% 
+  rename("number_of_we" = n.x) %>% 
+  rename("number_of_I" = n.y)
+
+sums <- full_join(sums, names, by = "title") %>% 
+  select(author, title, number_of_we, number_of_I)
+
+
+ggplot(data = sums, aes(x = number_of_we, y = number_of_I, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+```
+
+
+```{r}
+# frequency
+
+book_wordcount <- philosophy_data_tokens %>% 
+  group_by(title) %>% 
+  count()
+
+
+firstperson_frequency <- full_join(sums, book_wordcount, by = "title") %>% 
+  mutate(frequency_we = number_of_we / n) %>% 
+  mutate(frequency_I = number_of_I / n) 
+
+firstperson_frequency
+
+ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+```
+
+```{r}
+
+
+plural_sums <- philosophy_data_tokens %>% 
+  filter(word == "we" | word == "our" | word == "us" | word == "collective") %>% 
+  group_by(title)  %>% 
+  count(word) %>% 
+  group_by(title) %>% 
+  summarise(total = sum(n))
+
+singular_sums <- philosophy_data_tokens %>% 
+  filter(word == "I" | word == "i" | word == "my" | word == "mine") %>% 
+  group_by(title) %>% 
+  count(word) %>% 
+  group_by(title) %>% 
+  summarise(total = sum(n))
+
+
+firstperson_sums <- full_join(plural_sums, singular_sums, by = "title") %>% 
+  select(title, total.x, total.y) %>% 
+  rename("plural" = total.x) %>% 
+  rename("singular" = total.y)
+
+firstperson_sums <- full_join(firstperson_sums, names, by = "title") %>% 
+  select(author, title, plural, singular, original_publication_date)
+
+
+ggplot(data = firstperson_sums, aes(x = plural, y = singular, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+
+firstperson_frequency <- full_join(firstperson_sums, book_wordcount, by = "title") %>% 
+  mutate(frequency_plural = plural / n) %>% 
+  mutate(frequency_singular = singular / n) 
+
+firstperson_frequency
+
+ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(data = firstperson_frequency, aes(y = frequency_plural, x = original_publication_date, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  xlim(1600,2000) + 
+  theme_minimal() 
+
+```
+
 
 
