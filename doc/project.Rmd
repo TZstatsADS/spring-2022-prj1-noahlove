@@ -1,0 +1,118 @@
+---
+title: "Project 1"
+author: "Noah Love"
+date: "1/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## R Markdown
+
+Hello
+
+
+
+```{r}
+philosophy_data <- read_csv("philosophy_data.csv")
+
+
+```
+
+```{r}
+head(philosophy_data)
+```
+
+
+```{r}
+titles <- philosophy_data %>% 
+  select(title) %>% 
+  distinct(title)
+
+authors <- philosophy_data %>% 
+  select(author) %>% 
+  distinct(author)
+
+titles
+
+authors
+
+```
+
+```{r}
+dates <- philosophy_data %>% 
+  distinct(original_publication_date) 
+
+p <- ggplot(dates, aes(x = original_publication_date, y = 1)) + 
+  geom_point()
+
+p
+
+dates
+
+
+```
+
+
+```{r}
+ggplot(data = philosophy_data, mapping = aes(x = sentence_length)) + 
+  geom_histogram(binwidth = 5)
+
+summary(philosophy_data$sentence_length)
+
+```
+There is a sentence with 2649 characters including spaces. This is a 415 word sentence.
+
+```{r}
+largest_sentences <- philosophy_data %>% 
+  filter(sentence_length > 2000)
+
+largest_sentences
+
+
+
+largest_sentences$sentence_spacy
+```
+
+```{r}
+
+
+shortest_sentences <- philosophy_data %>% 
+  filter(sentence_length < 21) %>% 
+  select(title, sentence_spacy)
+
+head(shortest_sentences,10)
+
+```
+Not all of these look correct
+
+
+
+Who was more verbose? 
+```{r}
+authors
+
+platoAristotle <-  philosophy_data %>% 
+  filter(author == "Plato" | author == "Aristotle")
+
+ggplot(platoAristotle, aes(x = sentence_length, color = author)) + 
+  geom_histogram(fill= "white", alpha = 0.7, position = "dodge")
+
+```
+```{r}
+separated <- philosophy_data %>% 
+  select(title,author,tokenized_txt) %>% 
+  separate(tokenized_txt, sep = ",")
+
+separated 
+```
+
+
+```{r}
+
+```
+
+
