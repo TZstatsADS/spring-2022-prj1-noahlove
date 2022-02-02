@@ -1,0 +1,465 @@
+---
+title: "Project 1"
+author: "Noah Love"
+date: "1/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tokenizers)
+library(tidytext)
+```
+
+## R Markdown
+
+Hello
+
+
+
+```{r}
+philosophy_data <- read_csv("../data/philosophy_data.csv")
+
+```
+
+
+
+```{r}
+titles <- philosophy_data %>% 
+  select(title) %>% 
+  distinct(title)
+
+authors <- philosophy_data %>% 
+  select(author) %>% 
+  distinct(author)
+
+titles
+
+authors
+
+```
+
+```{r}
+dates <- philosophy_data %>% 
+  distinct(original_publication_date) 
+
+p <- ggplot(dates, aes(x = original_publication_date, y = 1)) + 
+  geom_point()
+
+p
+
+dates
+
+
+```
+
+
+```{r}
+ggplot(data = philosophy_data, mapping = aes(x = sentence_length)) + 
+  geom_histogram(binwidth = 5)
+
+summary(philosophy_data$sentence_length)
+
+```
+There is a sentence with 2649 characters including spaces. This is a 415 word sentence.
+
+```{r}
+largest_sentences <- philosophy_data %>% 
+  filter(sentence_length > 2000)
+
+largest_sentences
+
+
+
+largest_sentences$sentence_spacy
+```
+
+```{r}
+
+
+shortest_sentences <- philosophy_data %>% 
+  filter(sentence_length < 21) %>% 
+  select(title, sentence_spacy)
+
+head(shortest_sentences,10)
+
+```
+Not all of these look correct
+
+
+
+Who was more verbose? 
+```{r}
+authors
+
+authors
+
+platoAristotle <-  philosophy_data %>% 
+  filter(author == "Wollstonecraft" | author == "Nietzsche")
+
+
+
+ggplot(platoAristotle, aes(x = sentence_length, color = author)) + 
+  geom_histogram(fill= "white", alpha = 0.7, position = "dodge")
+
+```
+
+```{r eval=FALSE, include=FALSE}
+separated <- philosophy_data %>% 
+  select(title,author,tokenized_txt) %>% 
+  separate(tokenized_txt, sep = ",")
+
+separated 
+```
+
+```{r}
+
+# Cran guide to tokenizing 
+# https://cran.r-project.org/web/packages/tokenizers/vignettes/introduction-to-tokenizers.html
+
+philosophy_data_tokens <- philosophy_data %>% 
+  unnest_tokens(word, sentence_str)
+
+```
+ 
+
+
+
+```{r}
+
+tidy_plato <- philosophy_data_tokens %>% 
+  filter(author == "Plato") %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+tidy_plato %>%  
+  filter(n > 600) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
+```
+
+```{r}
+
+
+tidy_aristotle<- philosophy_data_tokens %>% 
+  filter(author == "Aristotle") %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+tidy_aristotle%>%  
+  filter(n > 1000) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
+```
+
+
+```{r}
+count_all <- philosophy_data_tokens %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+count_all%>%  
+  filter(n > 5000) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
+```
+## Infatuation with time
+
+sentiment 
+
+What is the focus on time? 
+
+```{r}
+count_all
+```
+
+Tokenize n-gram
+
+```{r}
+bigrams <- philosophy_data %>% 
+  unnest_tokens(bigram, sentence_spacy, token = "ngrams", n = 2)
+
+bigrams
+
+```
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+bigram_count <- bigrams %>% 
+  count(bigram, sort = TRUE)
+
+bigram_count
+
+
+```
+
+Get rid of stop words in bigrams 
+source: https://www.tidytextmining.com/ngrams.html
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+bigrams_filtered <- bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(!word1 %in% stop_words$word) %>% 
+  filter(!word2 %in% stop_words$word) %>% 
+  count(word1, word2, sort = TRUE)
+
+bigrams_filtered
+
+time_bigrams <- bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter("time" == word1 | "time" == word2) %>% 
+  count(word1, word2, sort = TRUE)
+
+time_bigrams
+
+time_bigrams_filtered <- time_bigrams %>% 
+    filter(!word1 %in% stop_words$word) %>% 
+    filter(!word2 %in% stop_words$word)
+
+time_bigrams_filtered
+
+```
+
+
+So pretty much nothing interesting. Most commoon phrase would be "philosophical troubles" or "human understanding". "Human nature" also is quite a lot. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+philosophy_data
+trigrams <- philosophy_data %>% 
+  unnest_tokens(trigram, sentence_spacy, token = "ngrams", n = 3) %>% 
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>% 
+  count(word1, word2, word3, sort = TRUE)
+
+trigrams
+
+time_trigrams <- philosophy_data %>% 
+  unnest_tokens(trigram, sentence_spacy, token = "ngrams", n = 3) %>% 
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>% 
+  filter("time" == word1 | "time" == word2 | "time" == word3) %>% 
+  count(word1, word2, word3, sort = TRUE)
+
+time_trigrams
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+
+names <- philosophy_data %>% 
+  distinct(title,author, original_publication_date) 
+
+we_sums <- philosophy_data_tokens %>% 
+  filter(word == "we" ) %>% 
+  group_by(title) %>% 
+  count(word)
+
+
+i_sums <- philosophy_data_tokens %>% 
+  filter(word == "I" | word == "i") %>% 
+  group_by(title) %>% 
+  count(word)
+
+sums <- full_join(we_sums, i_sums, by = "title") %>% 
+  select(title, n.x, n.y) %>% 
+  rename("number_of_we" = n.x) %>% 
+  rename("number_of_I" = n.y)
+
+sums <- full_join(sums, names, by = "title") %>% 
+  select(author, title, number_of_we, number_of_I)
+
+
+ggplot(data = sums, aes(x = number_of_we, y = number_of_I, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+# frequency
+
+book_wordcount <- philosophy_data_tokens %>% 
+  group_by(title) %>% 
+  count()
+
+
+firstperson_frequency <- full_join(sums, book_wordcount, by = "title") %>% 
+  mutate(frequency_we = number_of_we / n) %>% 
+  mutate(frequency_I = number_of_I / n) 
+
+firstperson_frequency
+
+ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+
+
+plural_sums <- philosophy_data_tokens %>% 
+  filter(word == "we" | word == "our" | word == "us" | word == "collective") %>% 
+  group_by(title)  %>% 
+  count(word) %>% 
+  group_by(title) %>% 
+  summarise(total = sum(n))
+
+singular_sums <- philosophy_data_tokens %>% 
+  filter(word == "I" | word == "i" | word == "my" | word == "mine") %>% 
+  group_by(title) %>% 
+  count(word) %>% 
+  group_by(title) %>% 
+  summarise(total = sum(n))
+
+
+firstperson_sums <- full_join(plural_sums, singular_sums, by = "title") %>% 
+  select(title, total.x, total.y) %>% 
+  rename("plural" = total.x) %>% 
+  rename("singular" = total.y)
+
+firstperson_sums <- full_join(firstperson_sums, names, by = "title") %>% 
+  select(author, title, plural, singular, original_publication_date)
+
+
+ggplot(data = firstperson_sums, aes(x = plural, y = singular, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+
+firstperson_frequency <- full_join(firstperson_sums, book_wordcount, by = "title") %>% 
+  mutate(frequency_plural = plural / n) %>% 
+  mutate(frequency_singular = singular / n) 
+
+firstperson_frequency
+
+ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+ggplot(data = firstperson_frequency, aes(y = frequency_plural, x = original_publication_date, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  xlim(1600,2000) + 
+  theme_minimal() 
+
+```
+
+
+
+## God
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+god_vocab <- philosophy_data_tokens %>% 
+  filter(word == "god" | word == "gods"| word == "heavenly" | word == "heaven" | word == "godly" | word == "angel" | word == "Jesus" | word == "deity" | word == "supreme being" | word == "divinity" | word == "immortal" | word =="Almighty" | word == "Allah" | word == "eternal") %>% 
+  group_by(author) %>% 
+  count(word) 
+
+
+average_dates <- names %>% 
+  group_by(author) %>% 
+  summarize(avg_original_publication = mean(original_publication_date))
+
+
+author_wordcount <- book_wordcount %>% 
+  full_join(names, by = "title") %>% 
+  group_by(author) %>% 
+  summarize(words = sum(n))
+
+god <- god_vocab %>% 
+  group_by(author) %>% 
+  summarise(heavenly_words = sum(n)) %>% 
+  full_join(average_dates, by = "author") %>% 
+  full_join(author_wordcount, by = "author") %>% 
+  mutate(heavenly_frequency = heavenly_words / words) %>% 
+  mutate(heavenly_percent = heavenly_frequency * 100)
+
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_words, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  theme_minimal()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_percent, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  ylim(0, 1) + 
+  xlim(1660,2000) + 
+  geom_smooth(method = 'gam', se = FALSE) + 
+  theme_minimal()
+```
+
+### Ngrams about god
+```{r echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
+bigrams_filtered
+
+View(bigrams)
+
+
+heavenly_bigrams <- bigrams %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  filter(word1 == "god" | word1 == "gods"| word1 == "heavenly" | word1 == "heaven" | word1 == "godly" | word1 == "angel" | word1 == "Jesus" | word1 == "deity" | word1 == "supreme being" | word1 == "divinity" | word1 == "immortal" | word1 =="Almighty" | word1 == "Allah"  | word1 == "eternal" | word2 == "god" | word2 == "gods"| word2 == "heavenly" | word2 == "heaven" | word2 == "godly" | word2 == "angel" | word2 == "Jesus" | word2 == "deity" | word2 == "supreme being" | word2 == "divinity" | word2 == "immortal" | word2 =="Almighty" | word2 == "Allah"  | word2 == "eternal") %>% 
+  count(word1, word2, sort = TRUE)
+
+
+heavenly_bigrams
+```
+
+
+```{r}
+heavenly_trigrams <- trigrams %>% 
+  filter(word1 == "god" | word1 == "gods"| word1 == "heavenly" | word1 == "heaven" | word1 == "godly" | word1 == "angel" | word1 == "Jesus" | word1 == "deity" | word1 == "supreme being" | word1 == "divinity" | word1 == "immortal" | word1 =="Almighty" | word1 == "Allah"  | word1 == "eternal" | word2 == "god" | word2 == "gods"| word2 == "heavenly" | word2 == "heaven" | word2 == "godly" | word2 == "angel" | word2 == "Jesus" | word2 == "deity" | word2 == "supreme being" | word2 == "divinity" | word2 == "immortal" | word2 =="Almighty" | word2 == "Allah"  | word2 == "eternal" | word3 == "god" | word3 == "gods"| word3 == "heavenly" | word3 == "heaven" | word3 == "godly" | word3 == "angel" | word3 == "Jesus" | word3 == "deity" | word3 == "supreme being" | word3 == "divinity" | word3 == "immortal" | word3 =="Almighty" | word3 == "Allah"  | word3 == "eternal") 
+
+heavenly_trigrams
+
+
+```
+
+
+```{r}
+bigram_count
+ggplot(data = bigram_count, data = aes(x = ))
+```
+
+objective	reality
+pure reason
+common sense
+natural science
+human nature
+practical	reason
+human	sciences
+objective	reality
+human	reason
+
+
+
+
+
+```{r}
+
+```
+
