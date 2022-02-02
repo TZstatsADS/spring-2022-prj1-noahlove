@@ -1,5 +1,5 @@
 ---
-title: "god"
+title: "God and Heaven in Philosophy"
 author: "Noah Love"
 date: "2/2/2022"
 output: html_document
@@ -7,7 +7,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 packages.used=c("tidyverse", "tokenizers", "tidytext", 
-                "tm", "forcats", "devtools")
+                "tm", "forcats", "devtools", "cowplot")
 
 # check packages that need to be installed.
 packages.needed=setdiff(packages.used, 
@@ -27,6 +27,7 @@ library(tm)
 library(forcats)
 library(devtools)
 library(ggpomological)
+library(cowplot)
 
 
 
@@ -36,6 +37,10 @@ print(R.version)
 ```
 
 ## God vs Reason
+
+> God is dead. God remains dead. And we have killed him. How shall we comfort ourselves, the murderers of all murderers? What was holiest and mightiest of all that the world has yet owned has bled to death under our knives: who will wipe this blood off us? What water is there for us to clean ourselves? What festivals of atonement, what sacred games shall we have to invent? Is not the greatness of this deed too great for us? Must we ourselves not become gods simply to appear worthy of it?
+
+
 
 Philosophy is often used as a broad description for applying critical thinking and logical analysis 
 
@@ -49,7 +54,6 @@ philosophy_data <- read_csv("../data/philosophy_data.csv") %>%
                              between(original_publication_date, 1700, 1799) ~ 18,
                              between(original_publication_date, 1800, 1899) ~ 19,
                              between(original_publication_date, 1900, 1999) ~ 20)) 
-summary(philosophy_data$original_publication_date)
 
 titles <- philosophy_data %>% 
   select(title) %>% 
@@ -61,6 +65,7 @@ authors <- philosophy_data %>%
 
 dates <- philosophy_data %>% 
   distinct(original_publication_date) 
+
 
 philosophy_data_tokens <- philosophy_data %>% 
   unnest_tokens(word, sentence_str)
@@ -86,9 +91,7 @@ philosophy_data_tokens <- full_join(philosophy_data_tokens, book_wordcount, by =
 ```
 
 
-Using a dataset of philosophical texts that span 36 authors and are primarily dates between the beginning of the 17th century and the end of the 20th century. 
-
-The first question that seems reasonable to analyze when focusing on religion versus reasoning as an infrastructure for explaining concepts is what concepts are these philosophers discussing. Using n-grams and removing the stop words of the dataset, we can see the post popular topics that plague our philosophers. 
+Using a dataset of philosophical texts that span 36 authors and are primarily dates between the beginning of the 17th century and the end of the 20th century. The first question that seems reasonable to analyze when focusing on religion versus reasoning as an infrastructure for explaining concepts is what concepts are these philosophers discussing. Using n-grams and removing the stop words of the dataset, we can see the post popular topics that plague our philosophers. 
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -114,6 +117,18 @@ count_all_graph + theme_pomological()
 
 ```
 
+These all seem characteristic for what you imagine when you hear philosophy. A larger discussion of time, or nature or the world as a whole. Trying to find reason and form in a feeling of randomness. Of the top 15 words, God is noticeably on the list. 
+
+
+![Nietzsche's favorite line that God is dead](../figs/god_is_dead_question.jpg)
+
+
+This author, one of the many featured in this data exploration, marked a turning point for many. In this period, the way of explaining how the world functioned no longer needed an eternal, uncomprehendible god. 
+
+
+![Example literature on the transition](../figs/preferring_athiest_philosophy.png)
+
+One of the ways that this transition can begin to present itself is a radical shift in the way authors discuss the topics. Authors like Nietzsche, Descartes and Berkeley begin to use plural prounouns and group speech as a way of communicating meaning. We, our, collective and more are words that begin to associate the power rather than I or me. It marks a notable transition in the way that meaning is produced. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 bigrams <- philosophy_data %>% 
@@ -122,11 +137,22 @@ bigrams <- philosophy_data %>%
 bigram_count <- bigrams %>% 
   count(bigram, sort = TRUE)
 
-#bigrams_filtered <- bigrams %>% 
-#  separate(bigram, c("word1", "word2"), sep = " ") %>% 
-# filter(!word1 %in% stop_words$word) %>% 
-#  filter(!word2 %in% stop_words$word) %>% 
-#  count(word1, word2, sort = TRUE)
+# bigrams_filtered <- bigrams %>% 
+#   separate(bigram, c("word1", "word2"), sep = " ") %>% 
+#   filter(!word1 %in% stop_words$word) %>% 
+#   filter(!word2 %in% stop_words$word) %>% 
+#   count(word1, word2, sort = TRUE) %>% 
+#   ggplot(aes(x = n, y = word)) +   
+#     aes(x = n,y = word) + 
+#     geom_col() +
+#     labs(y = NULL) +
+#     xlab("Number of instances") + 
+#     ggtitle("Favorite topics of philosophers") + 
+#     theme()
+
+
+
+
 ```
 
 
@@ -179,8 +205,8 @@ ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, labe
   geom_point() + 
   geom_text(vjust = -1) + 
   geom_abline(mapping = NULL, slope = 1)+ 
-  xlab("Singular Pronouns") + 
-  ylab("Plural Pronouns") + 
+  xlab("Singular Pronouns Frequeency") + 
+  ylab("Plural Pronouns Frequency") + 
   ggtitle("Differences in class speech")+
   theme_pomological() 
   
@@ -222,20 +248,31 @@ firstperson_frequency <- full_join(firstperson_sums, book_wordcount, by = "title
 
 
 
-ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author, color = century)) + 
-  geom_point() + 
-  geom_text(vjust = -1) + 
-  geom_abline(mapping = NULL, slope = 1)+ 
-  theme_pomological() 
+# ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author, color = century)) + 
+#   geom_point() + 
+#   geom_text(vjust = -1) + 
+#   geom_abline(mapping = NULL, slope = 1)+ 
+#   theme_pomological() 
 
-ggplot(data = firstperson_frequency, aes(y = frequency_plural, x = original_publication_date, label = author, color = century)) + 
+ggplot(data = firstperson_frequency, aes(y = frequency_singular, x = original_publication_date, label = author)) + 
   geom_point() + 
   geom_text(vjust = -1) + 
   geom_abline(mapping = NULL, slope = 1)+ 
+  geom_smooth(method = "lm") + 
   xlim(1600,2000) + 
-  theme_pomological() 
+  theme_pomological() +
+  ggtitle("Decreasing use of singular")
 
 ```
+
+While this change is noticable, it will be even more evident by analyzing the heavenly words directly. Words such as:
+- god
+- Jesus
+- heaven
+- angel
+- christian
+- divinity
+were selected from the dataset and their frequency was computed. This is mapped over time:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 god_vocab <- philosophy_data_tokens %>% 
@@ -275,10 +312,21 @@ ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_perc
 
 
 
-God vs reality and science
-
+More importantly, not only does the trend line push downwards, the tonality around these words changes as well. For example, Leibniz at the top of the graph writes:
 
 > “God is an absolutely perfect being”; “power and knowledge are perfections, and, insofar as they belong to God, they do not have limits”;
+
+whereas Niche and Marx later are writing in a very different tone.
+
+
+
+
+
+
+
+
+
+
 
 This is a complete shift in the tools used to describe. 
 
@@ -294,7 +342,7 @@ This is a complete shift in the tools used to describe.
 ```
 
 
-I woulld like comparison graph of realism terms against religious terms
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -338,8 +386,7 @@ book_tf_idf_filtered %>%
   labs(x = "tf-idf", y = NULL) + 
   theme_pomological() 
 ```
-
-We see that God isn't the primary discussion point, and in fact is often used in the reasoning, explanation or philosophy 
+Partially helpful in our understanding of the use of god in these philosophical works is term frequency–inverse document frequency. This analysis shows us that God or Jesus are not the unique individual features of any of these books. Instead, they are used as a tool to explain phenomena and questions in the work. 
 
 
 
@@ -356,23 +403,16 @@ godly_sentiments <- philosophy_sentiments %>%
   filter(word == "god" | word == "gods"| word == "heavenly" | word == "heaven" | word == "godly" | word == "angel" | word == "Jesus" | word == "deity" | word == "supreme being" | word == "divinity" | word == "immortal" | word =="Almighty" | word == "Allah" | word == "eternal" | word == "christian" | word == "christ" | word == "catholic") 
 
 
+
+
  
 ```
 
 
 
+We can confirm this suspicion by looking at the use of reasoning terms over time. The use of reasoning has actually remained rather constant. This we can use similarly to a baseline of reasoning. 
 
-The use of reasoning has actually remained rathere constant over time. 
-
-This we can use similarly to a baseline of reasoning. 
-
-
-
-
-
-
-
-Do a split of terms
+For this analysis, the following terms were separated and their frequency in the documents were shown as a comparison: 
 
 
 
@@ -416,9 +456,10 @@ god <- god_vocab %>%
 
 reasoning_vs_god <- full_join(reasoning, god, by = "author" ) %>% 
   filter(author != "Kant")
-reasoning_vs_god
+
 ```
 
+After removing Kant, just due to his verbose use of technical terms: 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(data = reasoning, mapping = aes(x = avg_original_publication, y = reasoning_percent, label = author)) + 
@@ -429,6 +470,10 @@ ggplot(data = reasoning, mapping = aes(x = avg_original_publication, y = reasoni
   geom_smooth(method = 'gam', se = FALSE) + 
   theme_pomological()
 ```
+It appears that over time, the use of reasoning hasn't changed. This should be viewed as a baseline. Instead, the tools with which humanity can explain the world in these texts has changed. Rather than needing to explain any phenomenon that is unexplainable as god, many new philosophers are capable of answering using different forms of reason. 
+
+
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 reasoning_minus_kant <- reasoning %>% 
@@ -445,6 +490,7 @@ ggplot(data = reasoning_minus_kant, mapping = aes(x = avg_original_publication, 
   theme_pomological() 
 ```
 
+This is shown when we plot the frequency of heavenly words against the reasoning words. Those that rely on heavenly concepts and god as their tools for explanation will do so heavily. There are none in this dataset that has a heavy reasoning score and heavy godly score in the data. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -452,12 +498,67 @@ ggplot(data = reasoning_vs_god, mapping = aes(x = reasoning_percent, y = heavenl
   geom_point() + 
   geom_text(vjust = -1) + 
   geom_abline(slope = 1, color = "#c03728") + 
-  theme_pomological() 
+  scale_fill_manual(values = ggpomological:::pomological_palette) + 
+  theme_pomological() +
   ylim(0,1)
+  
 ```
 
 
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+philosophy_sentiments <- philosophy_data_tokens %>%
+  inner_join(get_sentiments("bing"), by = c(word = "word"))
+
+
+sentiments_score <- philosophy_sentiments %>% 
+  mutate(sentiment_value = case_when(sentiment == "negative" ~ -1,
+                             sentiment == "positive" ~ 1)) %>% 
+  group_by(author) %>% 
+  summarise(sentiment_total = sum(sentiment_value)) %>% 
+  full_join(average_dates, by = "author")
 
 
 
+ggplot(data = sentiments_score, mapping = aes(y = sentiment_total, x = avg_original_publication))+
+  geom_point() + 
+  xlim(1660,2000) + 
+  theme_pomological() + 
+  geom_smooth(method = "lm")+ 
+  geom_abline(slope = 0, color = "#e68c7c")
+
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+reasoning_vs_god
+sentiments_score
+
+
+god_and_sentiments <- reasoning_vs_god %>% 
+  full_join(sentiments_score, by = "author")
+
+reasoning_graph <- ggplot(data = god_and_sentiments, mapping = aes(x = reasoning_percent, y = sentiment_total, label = author, color = century)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(slope = 1, color = "#c03728") + 
+  scale_fill_manual(values = ggpomological:::pomological_palette) + 
+  theme_pomological() 
+
+heavenly_graph <- ggplot(data = god_and_sentiments, mapping = aes(x = heavenly_percent, y = sentiment_total, label = author, color = century)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(slope = 1, color = "#c03728") + 
+  scale_fill_manual(values = ggpomological:::pomological_palette) + 
+  theme_pomological() 
+
+plot_grid(reasoning_graph, heavenly_graph, labels = "AUTO")
+
+
+
+```
+
+As a result, we see that the incresasing usage of reasoning or heavenly words has little effect on sentiment. In fact, it seems to be more of a personality of the writer instead!
+
+Overall, we have examined how philosophical works in the textual canon have changed over the last 4 centuries. The increasing use of collective terms as well as a decreasing use of god and heavenly ideas as tools of explanation have shifted the works. Although this hasn't affected sentiment, or the amount of reasoning, it has had a profound impact on the field which is not only written about but also visually witnessed by this data. 
