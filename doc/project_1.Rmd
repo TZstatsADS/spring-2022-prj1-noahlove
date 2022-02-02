@@ -1,0 +1,297 @@
+---
+title: "god"
+author: "Noah Love"
+date: "2/2/2022"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tokenizers)
+library(tidytext)
+library(tm)
+```
+
+## R Markdown
+
+Hello
+
+
+```{r}
+philosophy_data <- read_csv("../data/philosophy_data.csv")
+
+titles <- philosophy_data %>% 
+  select(title) %>% 
+  distinct(title)
+
+authors <- philosophy_data %>% 
+  select(author) %>% 
+  distinct(author)
+
+dates <- philosophy_data %>% 
+  distinct(original_publication_date) 
+
+philosophy_data_tokens <- philosophy_data %>% 
+  unnest_tokens(word, sentence_str)
+
+
+names <- philosophy_data %>% 
+  distinct(title,author, original_publication_date) 
+
+book_wordcount <- philosophy_data_tokens %>% 
+  group_by(title) %>% 
+  count()
+
+book_wordcount
+
+philosophy_data_tokens <- full_join(philosophy_data_tokens, book_wordcount, by = "title")
+
+```
+
+
+
+```{r}
+count_all <- philosophy_data_tokens %>% 
+  anti_join(stop_words)  %>% 
+  count(word, sort = TRUE)
+
+count_all%>%  
+  filter(n > 6000) %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(n,word)) + 
+  geom_col() +
+  labs(y = NULL)
+```
+```{r}
+bigrams <- philosophy_data %>% 
+  unnest_tokens(bigram, sentence_spacy, token = "ngrams", n = 2)
+
+bigram_count <- bigrams %>% 
+  count(bigram, sort = TRUE)
+
+#bigrams_filtered <- bigrams %>% 
+#  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+# filter(!word1 %in% stop_words$word) %>% 
+#  filter(!word2 %in% stop_words$word) %>% 
+#  count(word1, word2, sort = TRUE)
+```
+
+
+```{r}
+#trigrams <- philosophy_data %>% 
+#  unnest_tokens(trigram, sentence_spacy, token = "ngrams", n = 3) %>% 
+#  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>% 
+#  count(word1, word2, word3, sort = TRUE)
+
+```
+
+```{r}
+
+we_sums <- philosophy_data_tokens %>% 
+  filter(word == "we" ) %>% 
+  group_by(title) %>% 
+  count(word)
+
+
+i_sums <- philosophy_data_tokens %>% 
+  filter(word == "I" | word == "i") %>% 
+  group_by(title) %>% 
+  count(word)
+
+sums <- full_join(we_sums, i_sums, by = "title") %>% 
+  select(title, n.x, n.y) %>% 
+  rename("number_of_we" = n.x) %>% 
+  rename("number_of_I" = n.y)
+
+sums <- full_join(sums, names, by = "title") %>% 
+  select(author, title, number_of_we, number_of_I)
+
+
+ggplot(data = sums, aes(x = number_of_we, y = number_of_I, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+firstperson_frequency <- full_join(sums, book_wordcount, by = "title") %>% 
+  mutate(frequency_we = number_of_we / n) %>% 
+  mutate(frequency_I = number_of_I / n) 
+
+ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+```
+
+
+```{r}
+plural_sums <- philosophy_data_tokens %>% 
+  filter(word == "we" | word == "our" | word == "us" | word == "collective") %>% 
+  group_by(title)  %>% 
+  count(word) %>% 
+  group_by(title) %>% 
+  summarise(total = sum(n))
+
+singular_sums <- philosophy_data_tokens %>% 
+  filter(word == "I" | word == "i" | word == "my" | word == "mine") %>% 
+  group_by(title) %>% 
+  count(word) %>% 
+  group_by(title) %>% 
+  summarise(total = sum(n))
+
+
+firstperson_sums <- full_join(plural_sums, singular_sums, by = "title") %>% 
+  select(title, total.x, total.y) %>% 
+  rename("plural" = total.x) %>% 
+  rename("singular" = total.y)
+
+firstperson_sums <- full_join(firstperson_sums, names, by = "title") %>% 
+  select(author, title, plural, singular, original_publication_date)
+
+
+ggplot(data = firstperson_sums, aes(x = plural, y = singular, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+
+firstperson_frequency <- full_join(firstperson_sums, book_wordcount, by = "title") %>% 
+  mutate(frequency_plural = plural / n) %>% 
+  mutate(frequency_singular = singular / n) 
+
+firstperson_frequency
+
+ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  theme_minimal()
+
+ggplot(data = firstperson_frequency, aes(y = frequency_plural, x = original_publication_date, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(mapping = NULL, slope = 1)+ 
+  xlim(1600,2000) + 
+  theme_minimal() 
+
+```
+
+```{r}
+god_vocab <- philosophy_data_tokens %>% 
+  filter(word == "god" | word == "gods"| word == "heavenly" | word == "heaven" | word == "godly" | word == "angel" | word == "Jesus" | word == "deity" | word == "supreme being" | word == "divinity" | word == "immortal" | word =="Almighty" | word == "Allah" | word == "eternal" | word == "christian" | word == "christ" | word == "catholic") %>% 
+  group_by(author) %>% 
+  count(word) 
+
+
+average_dates <- names %>% 
+  group_by(author) %>% 
+  summarize(avg_original_publication = mean(original_publication_date))
+
+
+author_wordcount <- book_wordcount %>% 
+  full_join(names, by = "title") %>% 
+  group_by(author) %>% 
+  summarize(words = sum(n))
+
+god <- god_vocab %>% 
+  group_by(author) %>% 
+  summarise(heavenly_words = sum(n)) %>% 
+  full_join(average_dates, by = "author") %>% 
+  full_join(author_wordcount, by = "author") %>% 
+  mutate(heavenly_frequency = heavenly_words / words) %>% 
+  mutate(heavenly_percent = heavenly_frequency * 100)
+
+ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_percent, label = author)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  ylim(0, 1) + 
+  xlim(1660,2000) + 
+  geom_smooth(method = 'gam', se = FALSE) + 
+  theme_minimal()
+```
+
+objective	reality
+pure reason
+common sense
+natural science
+human nature
+practical	reason
+human	sciences
+objective	reality
+human	reason
+
+God vs reality and science
+```{r}
+
+#bigrams_science <- bigrams %>% 
+#  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+#  filter((word1 == "objective" | word2== "reality" ) | (word1 == "pure" | word2 == "reason")) 
+
+
+# bigrams_science
+
+```
+I woulld llike comparison graph of realism terms against religious terms
+
+```{r}
+
+
+philosophy_data_count <- philosophy_data_tokens %>% 
+  group_by(title) %>% 
+  count(word, sort = TRUE) %>% 
+  mutate(occurences = n) %>% 
+  select(-n)
+
+
+philosophy_data_count
+
+philosophy_data_counted <- full_join(philosophy_data_tokens, philosophy_data_count, by = c("title", "word"))
+philosophy_data_counted
+
+book_tf_idf <- philosophy_data_counted %>%
+  bind_tf_idf(word, author, occurences)
+
+
+book_tf_idf %>%
+  arrange(desc(tf_idf))
+```
+
+
+```{r}
+library(forcats)
+
+authors
+
+book_tf_idf_filtered <- book_tf_idf %>% 
+  filter( author == "Leibniz" | author == "Marx" | author == "Nietzsche" | author == "Smith") %>% 
+  group_by(title) %>% 
+  distinct(word, .keep_all = TRUE) 
+
+book_tf_idf_filtered
+
+book_tf_idf_filtered %>%
+  group_by(title) %>%
+  slice_max(tf_idf, n = 6) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = title)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~title, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+
+```{r}
+philosophy_sentiments <- philosophy_data_tokens %>%
+  inner_join(get_sentiments("bing"), by = c(word = "word"))
+
+philosophy_sentiments
+
+godly_sentiments <- philosophy_sentiments %>% 
+  filter(word == "god" | word == "gods"| word == "heavenly" | word == "heaven" | word == "godly" | word == "angel" | word == "Jesus" | word == "deity" | word == "supreme being" | word == "divinity" | word == "immortal" | word =="Almighty" | word == "Allah" | word == "eternal" | word == "christian" | word == "christ" | word == "catholic") 
+
+
+godly_sentiments 
+```
+
