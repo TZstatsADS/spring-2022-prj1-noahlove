@@ -5,27 +5,51 @@ date: "2/2/2022"
 output: html_document
 ---
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+packages.used=c("tidyverse", "tokenizers", "tidytext", 
+                "tm", "forcats", "devtools")
+
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+# install additional packages
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE)
+}
+
+devtools::install_github("gadenbuie/ggpomological")
+
 library(tidyverse)
 library(tokenizers)
 library(tidytext)
 library(tm)
+library(forcats)
+library(devtools)
+library(ggpomological)
+
+
+
+
+print(R.version)
+
 ```
 
-## R Markdown
+## God vs Reason
+
+Philosophy is often used as a broad description for applying critical thinking and logical analysis 
 
 
-God is dead question! 
-
-Preferring athiest philosophy
-
-
-
-Hello
+What gives the world meaning and what is the nature of reality itself? Questioning the very nature of things often not explainable through science itself. This data story explores the gradual change in philosophy away from using God and religion explain these broader topics.
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-philosophy_data <- read_csv("../data/philosophy_data.csv")
+philosophy_data <- read_csv("../data/philosophy_data.csv") %>%  
+  mutate(century = case_when(between(original_publication_date, 1600, 1699) ~ 17,
+                             between(original_publication_date, 1700, 1799) ~ 18,
+                             between(original_publication_date, 1800, 1899) ~ 19,
+                             between(original_publication_date, 1900, 1999) ~ 20)) 
+summary(philosophy_data$original_publication_date)
 
 titles <- philosophy_data %>% 
   select(title) %>% 
@@ -41,32 +65,56 @@ dates <- philosophy_data %>%
 philosophy_data_tokens <- philosophy_data %>% 
   unnest_tokens(word, sentence_str)
 
+centuries_title <- philosophy_data %>% 
+  distinct(title, century) 
+
+centuries_author <- philosophy_data %>% 
+  distinct(author, century) 
+
 
 names <- philosophy_data %>% 
   distinct(title,author, original_publication_date) 
 
 book_wordcount <- philosophy_data_tokens %>% 
   group_by(title) %>% 
-  count()
+  count() 
 
 philosophy_data_tokens <- full_join(philosophy_data_tokens, book_wordcount, by = "title")
 
+
+
 ```
 
+
+Using a dataset of philosophical texts that span 36 authors and are primarily dates between the beginning of the 17th century and the end of the 20th century. 
+
+The first question that seems reasonable to analyze when focusing on religion versus reasoning as an infrastructure for explaining concepts is what concepts are these philosophers discussing. Using n-grams and removing the stop words of the dataset, we can see the post popular topics that plague our philosophers. 
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 count_all <- philosophy_data_tokens %>% 
   anti_join(stop_words)  %>% 
-  count(word, sort = TRUE)
+  count(word, sort = TRUE) %>% 
+  filter(n > 6200) %>% 
+  mutate(word = reorder(word, n))  
+  
 
-count_all%>%  
-  filter(n > 6000) %>% 
-  mutate(word = reorder(word, n)) %>% 
-  ggplot(aes(n,word)) + 
+
+count_all_graph <- ggplot(count_all) + 
+  aes(x = n,y = word) + 
   geom_col() +
-  labs(y = NULL)
+  labs(y = NULL) +
+  xlab("Number of instances") + 
+  ggtitle("Favorite topics of philosophers")
+
+
+
+count_all_graph + theme_pomological()
+
+
 ```
+
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 bigrams <- philosophy_data %>% 
   unnest_tokens(bigram, sentence_spacy, token = "ngrams", n = 2)
@@ -114,21 +162,30 @@ sums <- full_join(sums, names, by = "title") %>%
   select(author, title, number_of_we, number_of_I)
 
 
-ggplot(data = sums, aes(x = number_of_we, y = number_of_I, label = author)) + 
-  geom_point() + 
-  geom_text(vjust = -1) + 
-  geom_abline(mapping = NULL, slope = 1)+ 
-  theme_minimal()
+#ggplot(data = sums, aes(x = number_of_we, y = number_of_I, label = author)) + 
+#  geom_point() + 
+#  geom_text(vjust = -1) + 
+#  geom_abline(mapping = NULL, slope = 1)+ 
+#  theme_minimal()
 
 firstperson_frequency <- full_join(sums, book_wordcount, by = "title") %>% 
   mutate(frequency_we = number_of_we / n) %>% 
   mutate(frequency_I = number_of_I / n) 
 
-ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, label = author)) + 
+firstperson_frequency <- full_join(firstperson_frequency, centuries_author, by = "author")
+
+
+ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, label = author, color = century)) + 
   geom_point() + 
   geom_text(vjust = -1) + 
   geom_abline(mapping = NULL, slope = 1)+ 
-  theme_minimal()
+  xlab("Singular Pronouns") + 
+  ylab("Plural Pronouns") + 
+  ggtitle("Differences in class speech")+
+  theme_pomological() 
+  
+
+
 ```
 
 
@@ -157,29 +214,26 @@ firstperson_sums <- full_join(firstperson_sums, names, by = "title") %>%
   select(author, title, plural, singular, original_publication_date)
 
 
-ggplot(data = firstperson_sums, aes(x = plural, y = singular, label = author)) + 
-  geom_point() + 
-  geom_text(vjust = -1) + 
-  geom_abline(mapping = NULL, slope = 1)+ 
-  theme_minimal()
-
 
 firstperson_frequency <- full_join(firstperson_sums, book_wordcount, by = "title") %>% 
   mutate(frequency_plural = plural / n) %>% 
-  mutate(frequency_singular = singular / n) 
+  mutate(frequency_singular = singular / n) %>% 
+  full_join(centuries_author, by = "author")
 
-ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author)) + 
+
+
+ggplot(data = firstperson_frequency, aes(x = frequency_plural, y = frequency_singular, label = author, color = century)) + 
   geom_point() + 
   geom_text(vjust = -1) + 
   geom_abline(mapping = NULL, slope = 1)+ 
-  theme_minimal()
+  theme_pomological() 
 
-ggplot(data = firstperson_frequency, aes(y = frequency_plural, x = original_publication_date, label = author)) + 
+ggplot(data = firstperson_frequency, aes(y = frequency_plural, x = original_publication_date, label = author, color = century)) + 
   geom_point() + 
   geom_text(vjust = -1) + 
   geom_abline(mapping = NULL, slope = 1)+ 
   xlim(1600,2000) + 
-  theme_minimal() 
+  theme_pomological() 
 
 ```
 
@@ -206,20 +260,28 @@ god <- god_vocab %>%
   full_join(average_dates, by = "author") %>% 
   full_join(author_wordcount, by = "author") %>% 
   mutate(heavenly_frequency = heavenly_words / words) %>% 
-  mutate(heavenly_percent = heavenly_frequency * 100)
+  mutate(heavenly_percent = heavenly_frequency * 100) %>% 
+  full_join(centuries_author, by = "author")
 
-ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_percent, label = author)) + 
+
+ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_percent, label = author, color = century)) + 
   geom_point() + 
   geom_text(vjust = -1) + 
   ylim(0, 1) + 
   xlim(1660,2000) + 
-  geom_smooth(method = 'gam', se = FALSE) + 
-  theme_minimal()
+  geom_smooth(method = 'gam', se = FALSE, color = "#e68c7c") + 
+  theme_pomological() 
 ```
 
 
 
 God vs reality and science
+
+
+> “God is an absolutely perfect being”; “power and knowledge are perfections, and, insofar as they belong to God, they do not have limits”;
+
+This is a complete shift in the tools used to describe. 
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 #bigrams_science <- bigrams %>% 
@@ -249,13 +311,13 @@ philosophy_data_counted <- full_join(philosophy_data_tokens, philosophy_data_cou
 book_tf_idf <- philosophy_data_counted %>%
   bind_tf_idf(word, author, occurences)
 
-book_tf_idf %>%
-  arrange(desc(tf_idf))
+#book_tf_idf %>%
+#  arrange(desc(tf_idf))
 ```
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-library(forcats)
+
 
 
 
@@ -273,7 +335,8 @@ book_tf_idf_filtered %>%
   ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = title)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~title, ncol = 2, scales = "free") +
-  labs(x = "tf-idf", y = NULL)
+  labs(x = "tf-idf", y = NULL) + 
+  theme_pomological() 
 ```
 
 We see that God isn't the primary discussion point, and in fact is often used in the reasoning, explanation or philosophy 
@@ -282,6 +345,8 @@ We see that God isn't the primary discussion point, and in fact is often used in
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+
 philosophy_sentiments <- philosophy_data_tokens %>%
   inner_join(get_sentiments("bing"), by = c(word = "word"))
 
@@ -334,8 +399,8 @@ reasoning <- bigrams_reasoning %>%
   full_join(average_dates, by = "author") %>% 
   full_join(author_wordcount, by = "author") %>% 
   mutate(reasoning_frequency = reasoning_words / words) %>% 
-  mutate(reasoning_percent = reasoning_frequency * 100)
-
+  mutate(reasoning_percent = reasoning_frequency * 100) %>% 
+  full_join(centuries_author, by = "author")
 
 
 
@@ -349,6 +414,9 @@ god <- god_vocab %>%
   mutate(heavenly_percent = heavenly_frequency * 100)
 
 
+reasoning_vs_god <- full_join(reasoning, god, by = "author" ) %>% 
+  filter(author != "Kant")
+reasoning_vs_god
 ```
 
 
@@ -359,7 +427,7 @@ ggplot(data = reasoning, mapping = aes(x = avg_original_publication, y = reasoni
   ylim(0, 1) + 
   xlim(1660,2000) + 
   geom_smooth(method = 'gam', se = FALSE) + 
-  theme_minimal()
+  theme_pomological()
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -374,7 +442,18 @@ ggplot(data = reasoning_minus_kant, mapping = aes(x = avg_original_publication, 
   ylim(0, .25) + 
   xlim(1660,2000) + 
   geom_smooth(method = 'gam', se = FALSE) + 
-  theme_minimal()
+  theme_pomological() 
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(data = reasoning_vs_god, mapping = aes(x = reasoning_percent, y = heavenly_percent, label = author, color = century)) + 
+  geom_point() + 
+  geom_text(vjust = -1) + 
+  geom_abline(slope = 1, color = "#c03728") + 
+  theme_pomological() 
+  ylim(0,1)
 ```
 
 
