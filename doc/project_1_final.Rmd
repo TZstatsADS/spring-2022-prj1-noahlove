@@ -41,7 +41,7 @@ print(R.version)
 > God is dead. God remains dead. And we have killed him. How shall we comfort ourselves, the murderers of all murderers? What was holiest and mightiest of all that the world has yet owned has bled to death under our knives: who will wipe this blood off us? What water is there for us to clean ourselves? What festivals of atonement, what sacred games shall we have to invent? Is not the greatness of this deed too great for us? Must we ourselves not become gods simply to appear worthy of it?
 
 
-![Nietzsche's favorite line that God is dead](../figs/god_is_dead_question.jpg)
+![Nietzsche's famous line that God is dead](../figs/god_is_dead_question.jpg)
 
 This quote from Friedrich Nietzsche, one of the featured authors in this data story had a profound impact on the field of philosophy. It marked a changing point in the tools that were at the disposal of theorists and the ways to describe various ideals. Philosophy is often used as a broad description for applying critical thinking and logical analysis. What gives the world meaning and what is the nature of reality itself? Questioning the very nature of things often not explainable through science itself. This data story explores the gradual change in philosophy away from using God and religion explain these broader topics.
 
@@ -212,7 +212,16 @@ ggplot(data = firstperson_frequency, aes(x = frequency_we, y = frequency_I, labe
 
 
 ```
-
+This analysis was completed by collecting words such as 
+- we
+- our
+- us
+- collective
+into a set and then finding the relative frequency with which they are used in every book in the data set. A similar analysis was done in the singular, such as for 
+- I
+- my
+- mine
+This broke down how the author was communicating. Authors such as Marx decreased the use of I, and instead spoke apart larger groups of society. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 plural_sums <- philosophy_data_tokens %>% 
@@ -273,7 +282,7 @@ While this change is noticable, it will be even more evident by analyzing the he
 - angel
 - christian
 - divinity
-were selected from the dataset and their frequency was computed. This is mapped over time:
+were selected from the dataset and their frequency was computed. This is mapped over time. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 god_vocab <- philosophy_data_tokens %>% 
@@ -318,7 +327,11 @@ ggplot(data = god, mapping = aes(x = avg_original_publication, y = heavenly_perc
 
 
 
-This is a complete shift in the tools used to describe philosophy. Just to be clear, god is not typically the center piece of the works, instead a tool used to describe and philosophize about the world as we know it. 
+This is a complete shift in the tools used to describe philosophy. Just to be clear, god is not typically the center piece of the works, instead a tool used to describe and philosophize about the world as we know it.
+
+This also appears to generalize well to a broader dataset, not just the limited set of texts. This is a result of Google n-gram which uses a vast set of English texts that it has scrabed for the usage over time. 
+
+![Google ngrams](../figs/google-ngrams.png)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -534,7 +547,7 @@ ggplot(data = sentiments_score, mapping = aes(y = sentiment_total, x = avg_origi
 
 ```
 
-Infact, there doesn't appear to be a relationship with either reasoning or god vocabulary against overall sentiment. 
+In fact, there doesn't appear to be a relationship with either reasoning or god vocabulary against overall sentiment. 
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
